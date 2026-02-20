@@ -1,5 +1,4 @@
 from langchain_openai import ChatOpenAI
-from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser, PydanticOutputParser
 from langchain_core.runnables import RunnableLambda
@@ -47,7 +46,7 @@ def format_docs(docs):
 
     return "\n\n".join(formatted)
 
-llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0, response_format={"type": "json_object"})
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
 rag_chain = {
     "context": RunnableLambda(lambda x: x["message"]) |retriever | format_docs,

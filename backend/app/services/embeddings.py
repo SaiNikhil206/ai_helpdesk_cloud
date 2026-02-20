@@ -1,7 +1,7 @@
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
-from langchain_huggingface import HuggingFaceEmbeddings
+# from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores.pgvector import PGVector
 from app.config import Config
 from dotenv import load_dotenv
@@ -25,7 +25,7 @@ documents = loader.load()
 splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=20)
 docs = splitter.split_documents(documents)
 
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
 # vectorstore = Chroma.from_documents(documents=docs, embedding=embeddings, persist_directory="chroma_db")
 
