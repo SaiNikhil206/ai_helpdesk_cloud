@@ -3,7 +3,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores.pgvector import PGVector
-from config import Config
+from app.config import Config
 from dotenv import load_dotenv
 import os
 

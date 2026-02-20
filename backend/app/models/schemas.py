@@ -1,6 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel, Field
-from models.db import UserRole
+from app.models.db import UserRole
 from typing import Any, Optional, Dict
 
 class UserRegister(BaseModel):

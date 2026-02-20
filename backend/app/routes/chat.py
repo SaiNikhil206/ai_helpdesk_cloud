@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends
-from services.memory import get_or_create_session
-from models.schemas import ChatRequest, ChatResponse
-from services.rag import ask_question
+from app.services.memory import get_or_create_session
+from app.models.schemas import ChatRequest, ChatResponse
+from app.services.rag import ask_question
 from sqlalchemy.orm import Session
-from models.db import User
+from app.models.db import User
 from fastapi import HTTPException
-from init_db import get_db
-from administration.dependencies import get_current_user
+from app.init_db import get_db
+from app.administration.dependencies import get_current_user
 
 
 router = APIRouter(

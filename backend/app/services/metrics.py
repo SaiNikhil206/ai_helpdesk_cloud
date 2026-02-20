@@ -1,4 +1,4 @@
-from models.db import Ticket, GuardRails
+from app.models.db import Ticket, GuardRails
 
 def metrics_summary(db):
 

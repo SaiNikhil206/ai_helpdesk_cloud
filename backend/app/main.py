@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from routes import chat,tickets,metrics,auth
-from init_db import engine, Base
+from app.routes import chat,tickets,metrics,auth
+from app.init_db import engine, Base
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

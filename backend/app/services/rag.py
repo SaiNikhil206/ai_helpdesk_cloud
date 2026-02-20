@@ -3,14 +3,14 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser, PydanticOutputParser
 from langchain_core.runnables import RunnableLambda
-from services.tickets import create_ticket_if_needed
-from services.prompts import PROMPT_TEMPLATE, CLASSIFICATION_PROMPT_TEMPLATE
-from services.embeddings import vectorstore
-from models.schemas import ChatRequest, ChatResponse
+from app.services.tickets import create_ticket_if_needed
+from app.services.prompts import PROMPT_TEMPLATE, CLASSIFICATION_PROMPT_TEMPLATE
+from app.services.embeddings import vectorstore
+from app.models.schemas import ChatRequest, ChatResponse
 from sqlalchemy.orm import Session
-from services.guardrails import evaluate_guardrails, validate_kb_grounding
-from services.memory import get_or_create_session, save_message, load_chat_history, save_guardrail_event, save_kb_references
-from services.role_policy import apply_role_constraints, adjust_answer_for_role, role_guardrail_message
+from app.services.guardrails import evaluate_guardrails, validate_kb_grounding
+from app.services.memory import get_or_create_session, save_message, load_chat_history, save_guardrail_event, save_kb_references
+from app.services.role_policy import apply_role_constraints, adjust_answer_for_role, role_guardrail_message
 from dotenv import load_dotenv
 load_dotenv()
 

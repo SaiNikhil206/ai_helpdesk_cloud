@@ -1,5 +1,5 @@
 from datetime import datetime
-from models.db import ChatSessions, ChatMessages,KBReferences,GuardRails
+from app.models.db import ChatSessions, ChatMessages,KBReferences,GuardRails
 
 def get_or_create_session(db, session_id, user_id,user_role, context):
 

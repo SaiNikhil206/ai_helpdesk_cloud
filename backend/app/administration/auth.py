@@ -1,5 +1,5 @@
-from models.db import User
-from administration.security import hash_password, verify_password, create_access_token
+from app.models.db import User
+from app.administration.security import hash_password, verify_password
 import uuid
 
 def register_user(db, username: str, password: str, role: str):

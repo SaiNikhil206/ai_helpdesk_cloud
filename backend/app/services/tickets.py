@@ -1,4 +1,4 @@
-from models.db import Ticket
+from app.models.db import Ticket
 from sqlalchemy import and_
 import uuid
 

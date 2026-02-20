@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
-from config import Config
+from app.config import Config
 load_dotenv()
 
 database_url = Config.CONNECTION_PG_DB

@@ -1,11 +1,11 @@
 from fastapi import APIRouter,Depends
 from sqlalchemy.orm import Session
-from init_db import get_db
-from models.schemas import TicketCreate, TicketResponse, TicketUpdate
-from models.db import Ticket, ChatSessions
-from administration.dependencies import get_current_user
+from app.init_db import get_db
+from app.models.schemas import TicketCreate, TicketResponse, TicketUpdate
+from app.models.db import Ticket, ChatSessions
+from app.administration.dependencies import get_current_user
 from fastapi import HTTPException, Query
-from models.db import Ticket
+from app.models.db import Ticket
 import uuid
 
 router = APIRouter(

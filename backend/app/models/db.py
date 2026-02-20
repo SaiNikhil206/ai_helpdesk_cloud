@@ -4,7 +4,7 @@ from enum import Enum
 from sqlalchemy import Column, String, Integer, Text,DateTime, Float, Boolean, ForeignKey,Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from init_db import Base
+from app.init_db import Base
 
 class UserRole(str, Enum):
     Trainee = "trainee"
