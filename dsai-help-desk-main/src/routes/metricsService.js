@@ -7,6 +7,8 @@ export const fetchMetricsSummary = async () => {
         return {
             ...data,
             resolvedTickets: data.closedTickets,
+            totalConversations: data.totalConversations,
+            avgConfidence: data.avgConfidence,
         };
     } catch (error) {
         console.error("Error fetching metrics summary:", error);

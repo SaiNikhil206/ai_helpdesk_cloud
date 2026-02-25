@@ -14,6 +14,7 @@ import PsychologyIcon      from '@mui/icons-material/Psychology';
 import SelfImprovementIcon from '@mui/icons-material/SelfImprovement';
 import ArrowDownwardIcon   from '@mui/icons-material/ArrowDownward';
 import SecurityIcon        from '@mui/icons-material/Security';
+import ChatIcon            from '@mui/icons-material/Chat';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, PointElement,
   LineElement, BarElement, ArcElement, Title, Tooltip, Legend, Filler,
@@ -287,13 +288,22 @@ const AnalyticsPage = () => {
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6} md={4} lg={2}><KPICard label="Total Tickets"         value={summary?.totalTickets}        icon={CheckCircleIcon}    color="#D4AF37" /></Grid>
                 <Grid item xs={12} sm={6} md={4} lg={2}><KPICard label="Open Tickets"          value={summary?.openTickets}          icon={ScheduleIcon}       color="#FF9500" /></Grid>
-                <Grid item xs={12} sm={6} md={4} lg={2}><KPICard label="Resolved Tickets"        value={summary?.resolvedTickets}        icon={TimerIcon}          color="#4A7C59" /></Grid>
+                <Grid item xs={12} sm={6} md={4} lg={2}><KPICard label="Resolved Tickets"      value={summary?.resolvedTickets}      icon={TimerIcon}          color="#4A7C59" /></Grid>
                 <Grid item xs={12} sm={6} md={4} lg={2}><KPICard label="Guardrail Activations" value={summary?.guardrailActivations} icon={SecurityIcon}       color="#2196F3" /></Grid>
                 <Grid item xs={12} sm={6} md={4} lg={2}><KPICard label="Escalations"           value={escalationCount}              icon={ArrowDownwardIcon}  color="#D32F2F" /></Grid>
                 <Grid item xs={12} sm={6} md={4} lg={2}>
                   <KPICard
                     label="Deflection Rate" icon={SelfImprovementIcon} color="#4A7C59"
                     value={deflectionRate != null ? (deflectionRate * 100).toFixed(1) : null} unit="%"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4} lg={2}>
+                  <KPICard label="Total Conversations" value={summary?.totalConversations} icon={ChatIcon} color="#AB47BC" />
+                </Grid>
+                <Grid item xs={12} sm={6} md={4} lg={2}>
+                  <KPICard
+                    label="Avg Confidence" icon={PsychologyIcon} color="#26C6DA"
+                    value={summary?.avgConfidence != null ? (summary.avgConfidence * 100).toFixed(1) : null} unit="%"
                   />
                 </Grid>
               </Grid>
@@ -435,10 +445,14 @@ const AnalyticsPage = () => {
                 <Typography variant="h6" sx={{ mb: 2, color: '#D4AF37', fontWeight: 'bold' }}>Guardrail Summary</Typography>
                 {loadingSum ? <Loader /> : (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                    <StatRow label="Total Activations" value={summary?.guardrailActivations} />
-                    <StatRow label="Total Tickets"     value={summary?.totalTickets} />
-                    <StatRow label="Open Tickets"      value={summary?.openTickets}   color="#FF9500" />
+                    <StatRow label="Total Activations"   value={summary?.guardrailActivations} />
+                    <StatRow label="Total Tickets"       value={summary?.totalTickets} />
+                    <StatRow label="Open Tickets"        value={summary?.openTickets}   color="#FF9500" />
                     <StatRow label="Resolved Tickets"    value={summary?.resolvedTickets} color="#4A7C59" />
+                    <StatRow label="Total Conversations" value={summary?.totalConversations} color="#AB47BC" />
+                    <StatRow label="Avg Confidence"
+                      value={summary?.avgConfidence != null ? `${(summary.avgConfidence * 100).toFixed(1)}%` : '—'}
+                      color="#26C6DA" />
                   </Box>
                 )}
               </Paper>
@@ -507,7 +521,7 @@ const AnalyticsPage = () => {
             {loadingSum ? <Loader /> : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {[
-                  { label: 'Open',   val: summary?.openTickets,   color: '#FF9500' },
+                  { label: 'Open',     val: summary?.openTickets,     color: '#FF9500' },
                   { label: 'Resolved', val: summary?.resolvedTickets, color: '#4A7C59' },
                 ].map(({ label, val, color }) => {
                   const total = summary?.totalTickets || 1;

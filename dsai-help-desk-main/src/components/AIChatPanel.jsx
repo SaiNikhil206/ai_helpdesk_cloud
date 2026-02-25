@@ -197,7 +197,7 @@ const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }
         content: "Hello! I'm your AI assistant for PCTE Help Desk. How can I help you today?",
         timestamp: new Date(),
         sentiment: { sentiment: 'neutral', score: 0 },
-        confidence: 0.95,
+        // confidence: 0.95,
       };
       setMessages([welcome]);
     }
@@ -245,7 +245,7 @@ const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }
         content: `✅ **Support ticket ${ticketId} has been created successfully!**\n\n**Ticket Details:**\n- **ID:** ${ticketId}\n- **Priority:** ${ticketData.priority}\n- **Status:** ${ticketData.status}\n- **Description:** ${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}\n\nOur support team will review your ticket and get back to you within 2 hours.`,
         timestamp: new Date(),
         sentiment: { sentiment: 'neutral', score: 0 },
-        confidence: 0.95,
+        // confidence: 0.95,
         ticketId,
         isTyping: true,
       };
@@ -311,10 +311,10 @@ const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }
     let aiResponse;
     try {
       const backendResponse = await sendMessage(userMessage);
-      console.log('Backend Response:', backendResponse);
+      console.log('Backend Response:', backendResponse?.kb_references?.[0]?.title);
       aiResponse = {
         message: backendResponse.answer,
-        confidence: backendResponse.confidence ?? 0.95,
+        confidence: backendResponse.confidence,
         tier: backendResponse.tier,
         severity: backendResponse.severity,
         needEscalation: backendResponse.needEscalation,
@@ -323,7 +323,7 @@ const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }
         sentiment: { sentiment: 'neutral', score: 0 },
         options: null,
         type: backendResponse.needEscalation ? 'escalation' : 'answer',
-        source: backendResponse.kb_references?.[0]?.title ?? null,
+        source: backendResponse?.kb_references?.[0]?.title || null,
       };
     } catch (error) {
       console.error('Chat API Error:', error);
@@ -396,6 +396,7 @@ const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }
       guardrail: aiResponse.guardrail,
       ticketId: aiResponse.ticketId,
       isTyping: true,
+      source: aiResponse.source,
     };
     setIsTyping(false);
     setMessages((prev) => [...prev, aiMsg]);

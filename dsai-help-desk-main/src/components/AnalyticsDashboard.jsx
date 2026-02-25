@@ -19,6 +19,7 @@ import SelfImprovementIcon from '@mui/icons-material/SelfImprovement';
 import ArrowDownwardIcon  from '@mui/icons-material/ArrowDownward';
 import AnalyticsIcon      from '@mui/icons-material/Analytics';
 import SecurityIcon       from '@mui/icons-material/Security';
+import ChatIcon           from '@mui/icons-material/Chat';
 import { fetchMetricsSummary, fetchMetricsTrends } from '../routes/metricsService';
 
 ChartJS.register(
@@ -231,13 +232,13 @@ const AnalyticsDashboard = () => {
               <KPICard label="Open Tickets"          value={summary?.openTickets}           icon={ScheduleIcon}       color="#FF9500" />
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
-              <KPICard label="Resolved Tickets"        value={summary?.resolvedTickets}         icon={TimerIcon}          color="#4A7C59" />
+              <KPICard label="Resolved Tickets"      value={summary?.resolvedTickets}       icon={TimerIcon}          color="#4A7C59" />
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
               <KPICard label="Guardrail Activations" value={summary?.guardrailActivations}  icon={SecurityIcon}       color="#2196F3" />
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
-              <KPICard label="Escalations"           value={summary?.escalations}       icon={ArrowDownwardIcon}  color="#D32F2F" />
+              <KPICard label="Escalations"           value={summary?.escalations}           icon={ArrowDownwardIcon}  color="#D32F2F" />
             </Grid>
             <Grid item xs={12} sm={6} md={2}>
               <KPICard
@@ -246,6 +247,18 @@ const AnalyticsDashboard = () => {
                 unit="%"
                 icon={SelfImprovementIcon}
                 color="#4A7C59"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <KPICard label="Total Conversations"   value={summary?.totalConversations}    icon={ChatIcon}           color="#AB47BC" />
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <KPICard
+                label="Avg Confidence"
+                value={summary?.avgConfidence != null ? (summary?.avgConfidence * 100).toFixed(1) : null}
+                unit="%"
+                icon={PsychologyIcon}
+                color="#26C6DA"
               />
             </Grid>
           </Grid>
@@ -407,7 +420,7 @@ const AnalyticsDashboard = () => {
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {[
-                { label: 'Open',   value: summary?.openTickets,   color: '#FF9500' },
+                { label: 'Open',     value: summary?.openTickets,     color: '#FF9500' },
                 { label: 'Resolved', value: summary?.resolvedTickets, color: '#4A7C59' },
               ].map(({ label, value, color }) => {
                 const total = summary?.totalTickets || 1;

@@ -31,4 +31,15 @@ app.include_router(chat.router)
 app.include_router(tickets.router)
 app.include_router(metrics.router)
 
+@app.get("/")
+async def health():
+    return {
+        "status": "healthy",
+        "service": "ESI Help Desk",
+        "version": "1.0.0"
+    }
 
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}

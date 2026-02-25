@@ -33,30 +33,18 @@ const BubbleContent = styled(Box)(({ theme, isUser, isAgent, isGuardrail }) => (
   border: isGuardrail ? '2px solid #D32F2F' : 'none',
   color: isAgent || isUser ? '#1a1a1a' : '#E0E0E0',
   wordWrap: 'break-word',
-  '& pre': {
-    whiteSpace: 'pre-wrap',
-    margin: 0,
-  },
+  '& pre': { whiteSpace: 'pre-wrap', margin: 0 },
   '& a': {
     color: isAgent || isUser ? '#0052CC' : '#4A7C59',
     textDecoration: 'underline',
-    '&:hover': {
-      color: isAgent || isUser ? '#003D99' : '#6BA876',
-    },
+    '&:hover': { color: isAgent || isUser ? '#003D99' : '#6BA876' },
   },
-  '& strong': {
-    fontWeight: 'bold',
-  },
-  '& ul, & ol': {
-    margin: '8px 0',
-    paddingLeft: '20px',
-  },
-  '& li': {
-    margin: '4px 0',
-  },
+  '& strong': { fontWeight: 'bold' },
+  '& ul, & ol': { margin: '8px 0', paddingLeft: '20px' },
+  '& li': { margin: '4px 0' },
 }));
 
-const SourceChip = styled(Chip)(({ theme }) => ({
+const SourceChip = styled(Chip)(() => ({
   marginTop: '8px',
   fontSize: '10px',
   height: '20px',
@@ -64,7 +52,7 @@ const SourceChip = styled(Chip)(({ theme }) => ({
   color: '#fff',
 }));
 
-const ConfidenceChip = styled(Chip)(({ theme }) => ({
+const ConfidenceChip = styled(Chip)(() => ({
   marginTop: '4px',
   fontSize: '10px',
   height: '20px',
@@ -72,7 +60,7 @@ const ConfidenceChip = styled(Chip)(({ theme }) => ({
   color: '#1a1a1a',
 }));
 
-const GuardrailChip = styled(Chip)(({ theme }) => ({
+const GuardrailChip = styled(Chip)(() => ({
   marginTop: '8px',
   fontSize: '10px',
   height: 'auto',
@@ -90,29 +78,41 @@ const GuardrailChip = styled(Chip)(({ theme }) => ({
     paddingBottom: '6px',
     lineHeight: 1.2,
   },
-  '& .MuiChip-icon': {
-    marginTop: '6px',
-  },
+  '& .MuiChip-icon': { marginTop: '6px' },
 }));
 
-const SentimentIndicator = styled(Box)(({ theme, sentiment }) => ({
+const SentimentIndicator = styled(Box)(({ sentiment }) => ({
   display: 'inline-block',
   width: '8px',
   height: '8px',
   borderRadius: '50%',
   marginLeft: '8px',
-  backgroundColor: 
+  backgroundColor:
     sentiment === 'frustrated' ? '#DC3545' :
-    sentiment === 'satisfied' ? '#28A745' :
+    sentiment === 'satisfied'  ? '#28A745' :
     '#6C757D',
 }));
 
-const ChatMessage = ({ message, isUser = false, source, confidence, sentiment, type, agentName, agentTier, isTyping = false, guardrail }) => {
+const ChatMessage = ({
+  message,
+  isUser = false,
+  source,
+  confidence,
+  sentiment,
+  type,
+  agentName,
+  agentTier,
+  isTyping = false,
+  guardrail,
+}) => {
   const [displayText, setDisplayText] = React.useState(isTyping ? '' : message);
-  
+  // ✅ Track whether typing animation has finished
+  const [typingDone, setTypingDone] = React.useState(!isTyping);
+
   React.useEffect(() => {
+    console.log(confidence)
     if (isTyping && message) {
-      // Typing effect - reveal text character by character
+      setTypingDone(false);
       let currentIndex = 0;
       const interval = setInterval(() => {
         if (currentIndex < message.length) {
@@ -120,13 +120,14 @@ const ChatMessage = ({ message, isUser = false, source, confidence, sentiment, t
           currentIndex++;
         } else {
           clearInterval(interval);
-          setDisplayText(message); // Ensure full message is set when done
+          setDisplayText(message);
+          setTypingDone(true); // ✅ Mark typing as complete so chips appear
         }
-      }, 20); // 20ms per character
-      
+      }, 20);
       return () => clearInterval(interval);
     } else {
       setDisplayText(message);
+      setTypingDone(true);
     }
   }, [isTyping, message]);
 
@@ -140,15 +141,26 @@ const ChatMessage = ({ message, isUser = false, source, confidence, sentiment, t
           color: '#fff',
         }}
       >
-        {isUser ? <PersonIcon fontSize="small" /> : agentName ? <PersonIcon fontSize="small" /> : <SmartToyIcon fontSize="small" />}
+        {isUser ? (
+          <PersonIcon fontSize="small" />
+        ) : agentName ? (
+          <PersonIcon fontSize="small" />
+        ) : (
+          <SmartToyIcon fontSize="small" />
+        )}
       </Avatar>
+
       <Box sx={{ flex: 1 }}>
         <BubbleContent isUser={isUser} isAgent={!!agentName} isGuardrail={type === 'guardrail'}>
+
+          {/* Agent name badge */}
           {agentName && (
             <Typography variant="caption" sx={{ color: '#1a1a1a', fontWeight: 'bold', mb: 0.5, display: 'block' }}>
               {agentName} ({agentTier})
             </Typography>
           )}
+
+          {/* Guardrail header */}
           {type === 'guardrail' && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <SecurityIcon sx={{ fontSize: 16, color: '#D32F2F' }} />
@@ -157,8 +169,10 @@ const ChatMessage = ({ message, isUser = false, source, confidence, sentiment, t
               </Typography>
             </Box>
           )}
+
+          {/* Message text */}
           <Typography variant="body2" component="div" sx={{ lineHeight: 1.5 }}>
-            {isTyping ? (
+            {isTyping && !typingDone ? (
               <span style={{ whiteSpace: 'pre-wrap' }}>
                 {displayText}
                 <BlinkingCursor>|</BlinkingCursor>
@@ -166,13 +180,18 @@ const ChatMessage = ({ message, isUser = false, source, confidence, sentiment, t
             ) : (
               <ReactMarkdown
                 components={{
-                  p: ({ children }) => <Typography component="p" variant="body2" sx={{ mb: 1, lineHeight: 1.5 }}>{children}</Typography>,
+                  p: ({ children }) => (
+                    <Typography component="p" variant="body2" sx={{ mb: 1, lineHeight: 1.5 }}>
+                      {children}
+                    </Typography>
+                  ),
                   strong: ({ children }) => <strong>{children}</strong>,
                   ul: ({ children }) => <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>{children}</ul>,
                   ol: ({ children }) => <ol style={{ margin: '8px 0', paddingLeft: '20px' }}>{children}</ol>,
                   li: ({ children }) => <li style={{ margin: '4px 0' }}>{children}</li>,
                   a: ({ href, children }) => (
-                    <Link href={href} target="_blank" rel="noopener noreferrer" sx={{ color: isUser || agentName ? '#0052CC' : '#4A7C59', textDecoration: 'underline' }}>
+                    <Link href={href} target="_blank" rel="noopener noreferrer"
+                      sx={{ color: isUser || agentName ? '#0052CC' : '#4A7C59', textDecoration: 'underline' }}>
                       {children}
                     </Link>
                   ),
@@ -182,44 +201,47 @@ const ChatMessage = ({ message, isUser = false, source, confidence, sentiment, t
               </ReactMarkdown>
             )}
           </Typography>
-          
-          {/* Guardrail indicator */}
+
+          {/* Guardrail chip */}
           {type === 'guardrail' && guardrail && (
             <Box sx={{ mt: 1 }}>
               <GuardrailChip
-                label={`Security Guardrail: ${guardrail.category.replace('_', ' ').toUpperCase()}`}
+                label={`Security Guardrail: ${guardrail.category?.replace('_', ' ').toUpperCase()}`}
                 size="small"
                 icon={<SecurityIcon sx={{ fontSize: 12, color: '#fff' }} />}
               />
             </Box>
           )}
-          
-          {/* Source attribution for AI messages */}
-          {!isUser && source && type !== 'guardrail' && (
-            <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-              <SourceChip
-                label={`Source: ${source}`}
-                size="small"
-              />
+
+          {/* ✅ Confidence + Source chips — appear AFTER typing animation completes */}
+          {!isUser && typingDone && type !== 'guardrail' && (confidence || source) && (
+            <Box sx={{ mt: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
               {confidence && (
                 <ConfidenceChip
                   label={`${Math.round(confidence * 100)}% confidence`}
                   size="small"
                 />
               )}
+              {source && (
+                <SourceChip
+                  label={`KB: ${source}`}
+                  size="small"
+                />
+              )}
               {sentiment && sentiment.sentiment !== 'neutral' && (
-                <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <SentimentIndicator sentiment={sentiment.sentiment} />
-                  <Typography variant="caption" sx={{ ml: 0.5, fontSize: '10px' }}>
+                  <Typography variant="caption" sx={{ ml: 0.5, fontSize: '10px', color: '#999' }}>
                     {sentiment.sentiment === 'frustrated' ? 'Frustrated' : 'Satisfied'}
                   </Typography>
                 </Box>
               )}
             </Box>
           )}
+
         </BubbleContent>
-        
-        {/* Options for disambiguation */}
+
+        {/* Disambiguation options */}
         {type && type.options && (
           <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             {type.options.map((option, idx) => (
@@ -231,9 +253,7 @@ const ChatMessage = ({ message, isUser = false, source, confidence, sentiment, t
                   backgroundColor: '#333333',
                   color: '#D4AF37',
                   cursor: 'pointer',
-                  '&:hover': {
-                    backgroundColor: '#444444',
-                  },
+                  '&:hover': { backgroundColor: '#444444' },
                 }}
               />
             ))}
@@ -245,4 +265,3 @@ const ChatMessage = ({ message, isUser = false, source, confidence, sentiment, t
 };
 
 export default ChatMessage;
-

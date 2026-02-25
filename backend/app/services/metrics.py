@@ -5,55 +5,39 @@ from collections import defaultdict
 
 def metrics_summary(db):
 
+    # Ticket Metrics
     total_tickets = db.query(func.count(Ticket.id)).scalar()
 
-    open_tickets = db.query(func.count(Ticket.id)) \
-        .filter(Ticket.status == TicketStatus.OPEN) \
-        .scalar()
+    open_tickets = db.query(func.count(Ticket.id)).filter(Ticket.status == TicketStatus.OPEN).scalar()
 
-    closed_tickets = db.query(func.count(Ticket.id)) \
-        .filter(Ticket.status == TicketStatus.RESOLVED) \
-        .scalar()
+    closed_tickets = db.query(func.count(Ticket.id)).filter(Ticket.status == TicketStatus.RESOLVED).scalar()
 
-    # Tickets by Severity
-    severity_rows = db.query(
-        Ticket.severity,
-        func.count(Ticket.id)
-    ).group_by(Ticket.severity).all()
+    severity_rows = db.query(Ticket.severity,func.count(Ticket.id)).group_by(Ticket.severity).all()
 
-    tickets_by_severity = {
-        row[0].value: row[1] for row in severity_rows
-    }
+    tickets_by_severity = {row[0].value: row[1] for row in severity_rows}
 
-    #  Tickets by Tier
-    tier_rows = db.query(
-        Ticket.tier,
-        func.count(Ticket.id)
-    ).group_by(Ticket.tier).all()
+    tier_rows = db.query(Ticket.tier,func.count(Ticket.id)).group_by(Ticket.tier).all()
 
-    tickets_by_tier = {
-        row[0].value: row[1] for row in tier_rows
-    }
+    tickets_by_tier = {row[0].value: row[1] for row in tier_rows}
 
-    #  Guardrail activations
-    guardrail_hits = db.query(func.count(GuardRails.id)) \
-        .filter(GuardRails.blocked == True) \
-        .scalar()
+    guardrail_hits = db.query(func.count(GuardRails.id)).filter(GuardRails.blocked == True).scalar()
 
-    #  Escalations
-    escalation_count = db.query(func.count(ChatMessages.id)) \
-        .filter(ChatMessages.need_escalation == True) \
-        .scalar()
+    escalation_count = db.query(func.count(ChatMessages.id)).filter(ChatMessages.need_escalation == True).scalar()
 
-    #  Conversation volumes
     total_sessions = db.query(func.count(ChatSessions.id)).scalar()
-
     total_messages = db.query(func.count(ChatMessages.id)).scalar()
 
-    #  Deflection rate
+    total_conversations = total_messages/2
+
+    avg_confidence = db.query(func.avg(ChatMessages.confidence)).filter(ChatMessages.role == "assistant"   ).scalar()
+
+    avg_confidence = round(avg_confidence, 3) if avg_confidence else 0
+
+    # Deflection Rate
     deflection_rate = 0
     if total_sessions:
         sessions_with_tickets = db.query(func.count(func.distinct(Ticket.session_id))).scalar()
+
         deflected_sessions = total_sessions - sessions_with_tickets
         deflection_rate = round(deflected_sessions / total_sessions, 3)
 
@@ -70,6 +54,8 @@ def metrics_summary(db):
             "messages": total_messages,
         },
         "deflectionRate": deflection_rate,
+        "totalConversations": total_conversations,
+        "avgConfidence": avg_confidence,
     }
 
 
