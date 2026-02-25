@@ -6,14 +6,30 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 
-const LoginPage = ({ onLogin }) => {
+const LoginPage = () => {
   const navigate = useNavigate();
 
-  const handleLogin = (user) => {
-    onLogin(user);
-    // Navigate to role-specific dashboard
-    navigate(`/${user.id}`);
+  // const handleLogin = (user) => {
+  // onLogin(user);
+  // Navigate to role-specific dashboard
+  // navigate(`/${user.id}`);
+  // };
+
+  // const handleLogin = (user) => {
+  //   onLogin(user);
+  //   navigate('/signin');
+  // };
+
+const handleLogin = (user) => {
+  const safeUser = {
+    id: user.id,
+    name: user.name,
+    username: user.username,
+    role: user.role,
   };
+
+  navigate('/signin', { state: { user: safeUser } });
+};
 
   const handleTitleClick = () => {
     // Hidden easter egg: open demo script navigator in new tab
@@ -59,11 +75,11 @@ const LoginPage = ({ onLogin }) => {
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#1a1a1a' }}>
       <Container maxWidth="md" sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', py: 4 }}>
         <Box sx={{ textAlign: 'center', mb: 6 }}>
-          <Typography 
-            variant="h1" 
+          <Typography
+            variant="h1"
             onClick={handleTitleClick}
-            sx={{ 
-              mb: 2, 
+            sx={{
+              mb: 2,
               color: '#D4AF37',
               cursor: 'pointer',
               transition: 'all 0.3s ease',
@@ -95,7 +111,7 @@ const LoginPage = ({ onLogin }) => {
                     transform: 'translateY(-4px)',
                   },
                 }}
-                onClick={() => handleLogin(user)}
+              // onClick={() => handleLogin(user)}
               >
                 <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -110,10 +126,21 @@ const LoginPage = ({ onLogin }) => {
                   <Typography variant="body1" sx={{ mb: 3, color: '#E0E0E0', flex: 1 }}>
                     {user.description}
                   </Typography>
+                  {/* <Button
+                    variant="contained"
+                    fullWidth
+                    sx={{ mt: 'auto' }}
+                  >
+                    Login as {user.role}
+                  </Button> */}
                   <Button
                     variant="contained"
                     fullWidth
                     sx={{ mt: 'auto' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLogin(user);
+                    }}
                   >
                     Login as {user.role}
                   </Button>

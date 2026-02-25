@@ -50,7 +50,7 @@ class ChatResponse(BaseModel):
 
 class TicketCreate(BaseModel):
 
-    session_id: str = Field(..., example="uuid-session-id")
+    session_id: str | int = Field(..., example="uuid-session-id")
     tier: str = Field(..., example="TIER_2")
     severity: str = Field(..., example="HIGH")
     user_role: str = Field(..., example="trainee")
@@ -60,7 +60,7 @@ class TicketCreate(BaseModel):
 class TicketResponse(BaseModel):
 
     id: str
-    session_id: str
+    session_id: str | int
     tier: str
     severity: str
     status: str

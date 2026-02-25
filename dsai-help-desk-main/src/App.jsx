@@ -4,6 +4,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import pcteTheme from './theme/pcteTheme';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import SignIn from './components/SignIn';
 import Layout from './components/Layout';
 import LoginPage from './components/LoginPage';
 import SelfServicePortal from './components/SelfServicePortal';
@@ -42,13 +43,13 @@ const rolePermissions = {
 // Check if user has access to a route
 const hasRouteAccess = (userRole, routePath) => {
   if (!userRole) return false;
-  
+
   const permissions = rolePermissions[userRole];
   if (!permissions) return false;
-  
+
   // Administrator has access to all routes
   if (permissions.allowedRoutes.includes('*')) return true;
-  
+
   // Check if route is in allowed routes
   return permissions.allowedRoutes.includes(routePath);
 };
@@ -97,12 +98,13 @@ const RoleProtectedRoute = ({ children, path }) => {
 };
 
 function AppRoutes() {
-  const { user, login } = useAuth();
+  const { login } = useAuth();
 
   return (
     <Routes>
       {/* Login Page */}
       <Route path="/" element={<LoginPage onLogin={login} />} />
+      <Route path="/signin" element={<SignIn />} />
 
       {/* Cyber Operator Dashboard */}
       <Route

@@ -5,7 +5,7 @@ from langchain_core.runnables import RunnableLambda
 from app.services.tickets import create_ticket_if_needed
 from app.services.prompts import PROMPT_TEMPLATE, CLASSIFICATION_PROMPT_TEMPLATE
 from app.services.embeddings import vectorstore
-from app.models.schemas import ChatRequest, ChatResponse
+from app.models.schemas import ChatRequest, ChatResponse, GuardRail
 from sqlalchemy.orm import Session
 from app.services.guardrails import evaluate_guardrails, validate_kb_grounding
 from app.services.memory import get_or_create_session, save_message, load_chat_history, save_guardrail_event, save_kb_references
@@ -248,10 +248,10 @@ def ask_question(request: ChatRequest, db: Session) -> ChatResponse:
         request.user_role,
     )
 
-    rag_response.guardrail = {
-        "blocked": False,
-        "reason": None,
-    }
+    rag_response.guardrail = GuardRail(
+        blocked=False,
+        reason=None
+    )
 
     # SAVE ASSISTANT MESSAGE
     save_message(

@@ -16,6 +16,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = (userData) => {
+    // userData includes: username, name, role, access_token, session_id
     setUser(userData);
     localStorage.setItem('pcte_user', JSON.stringify(userData));
   };
@@ -25,8 +26,11 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('pcte_user');
   };
 
+  // Convenience getter so components can access session_id directly
+  const session_id = user?.session_id || null;
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, session_id }}>
       {children}
     </AuthContext.Provider>
   );

@@ -6,7 +6,7 @@ load_dotenv()
 
 database_url = Config.CONNECTION_PG_DB
 
-engine = create_engine(database_url)
+engine = create_engine(database_url,pool_pre_ping=True,pool_recycle=1800)
 
 sessionLocal = sessionmaker(autoflush=False,expire_on_commit=False,bind=engine)
 

@@ -5,21 +5,57 @@ import {
   Typography,
   IconButton,
   Alert,
-  CircularProgress,
   Collapse,
-  Chip,
   Paper,
   alpha,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChatIcon from '@mui/icons-material/Chat';
 import { styled } from '@mui/material/styles';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
-import { generateResponse, simulateTypingDelay, shouldCreateTicket, generateTicketData } from '../utils/aiSimulatorSimple';
+import { sendMessage } from '../routes/chatService';
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+const STORAGE_KEY = 'pcte_chat_messages';
+const CONTEXT_KEY = 'pcte_chat_context';
+
+const loadMessages = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    // Rehydrate Date objects
+    return JSON.parse(raw).map((m) => ({ ...m, timestamp: new Date(m.timestamp) }));
+  } catch {
+    return [];
+  }
+};
+
+const saveMessages = (msgs) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs));
+  } catch {}
+};
+
+const loadContext = () => {
+  try {
+    const raw = localStorage.getItem(CONTEXT_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveContext = (ctx) => {
+  try {
+    localStorage.setItem(CONTEXT_KEY, JSON.stringify(ctx));
+  } catch {}
+};
+
+// ─── Styled components ───────────────────────────────────────────────────────
 
 const ChatPanel = styled(Paper)(({ theme }) => ({
   position: 'fixed',
@@ -38,9 +74,7 @@ const ChatPanel = styled(Paper)(({ theme }) => ({
   zIndex: 1000,
   background: `linear-gradient(180deg, ${alpha('#1a1a1a', 1)} 0%, ${alpha('#121212', 1)} 100%)`,
   overflow: 'hidden',
-  [theme.breakpoints.down('lg')]: {
-    width: '380px',
-  },
+  [theme.breakpoints.down('lg')]: { width: '380px' },
   [theme.breakpoints.down('md')]: {
     width: 'calc(100vw - 48px)',
     right: 24,
@@ -50,7 +84,7 @@ const ChatPanel = styled(Paper)(({ theme }) => ({
   },
 }));
 
-const ChatHeader = styled(Box)(({ theme }) => ({
+const ChatHeader = styled(Box)(() => ({
   padding: '20px 24px',
   borderBottom: `2px solid ${alpha('#D4AF37', 0.2)}`,
   display: 'flex',
@@ -70,29 +104,22 @@ const ChatHeader = styled(Box)(({ theme }) => ({
   },
 }));
 
-const MessagesContainer = styled(Box)(({ theme }) => ({
+const MessagesContainer = styled(Box)(() => ({
   flex: 1,
   overflowY: 'auto',
   padding: '20px',
   background: `linear-gradient(180deg, ${alpha('#1a1a1a', 1)} 0%, ${alpha('#121212', 1)} 100%)`,
-  '&::-webkit-scrollbar': {
-    width: '10px',
-  },
-  '&::-webkit-scrollbar-track': {
-    backgroundColor: '#121212',
-    borderRadius: '5px',
-  },
+  '&::-webkit-scrollbar': { width: '10px' },
+  '&::-webkit-scrollbar-track': { backgroundColor: '#121212', borderRadius: '5px' },
   '&::-webkit-scrollbar-thumb': {
     backgroundColor: alpha('#D4AF37', 0.3),
     borderRadius: '5px',
     border: '2px solid #121212',
-    '&:hover': {
-      backgroundColor: alpha('#D4AF37', 0.5),
-    },
+    '&:hover': { backgroundColor: alpha('#D4AF37', 0.5) },
   },
 }));
 
-const TypingIndicator = styled(Box)(({ theme }) => ({
+const TypingIndicator = styled(Box)(() => ({
   display: 'flex',
   alignItems: 'center',
   gap: '10px',
@@ -105,21 +132,25 @@ const TypingIndicator = styled(Box)(({ theme }) => ({
   width: 'fit-content',
 }));
 
+// ─── Component ───────────────────────────────────────────────────────────────
+
 const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }) => {
-  const [messages, setMessages] = useState([]);
+  // ✅ Initialise from localStorage so messages survive refresh / tab switch
+  const [messages, setMessages] = useState(() => loadMessages());
   const [isTyping, setIsTyping] = useState(false);
   const [typingMessage, setTypingMessage] = useState('Understanding request...');
-  const [conversationContext, setConversationContext] = useState({});
+  // ✅ Persist conversation context too
+  const [conversationContext, setConversationContext] = useState(() => loadContext());
   const [escalationStatus, setEscalationStatus] = useState(null);
   const [isAgentActive, setIsAgentActive] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const typingIntervalRef = useRef(null);
   const initialMessageSentRef = useRef(false);
   const lastInitialMessageRef = useRef(null);
 
-  // Rotating typing messages
   const typingMessages = [
     'Understanding request...',
     'Analyzing...',
@@ -127,91 +158,73 @@ const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }
     'Generating response...',
   ];
 
-  // Rotate typing messages when typing
+  // ✅ Persist messages to localStorage whenever they change
+  useEffect(() => {
+    saveMessages(messages);
+  }, [messages]);
+
+  // ✅ Persist context to localStorage whenever it changes
+  useEffect(() => {
+    saveContext(conversationContext);
+  }, [conversationContext]);
+
+  // Rotate typing indicator text
   useEffect(() => {
     if (isTyping && !escalationStatus) {
-      let messageIndex = 0;
+      let idx = 0;
       setTypingMessage(typingMessages[0]);
-      
       typingIntervalRef.current = setInterval(() => {
-        messageIndex = (messageIndex + 1) % typingMessages.length;
-        setTypingMessage(typingMessages[messageIndex]);
+        idx = (idx + 1) % typingMessages.length;
+        setTypingMessage(typingMessages[idx]);
       }, 1500);
-      
-      return () => {
-        if (typingIntervalRef.current) {
-          clearInterval(typingIntervalRef.current);
-        }
-      };
+      return () => clearInterval(typingIntervalRef.current);
     } else {
-      if (typingIntervalRef.current) {
-        clearInterval(typingIntervalRef.current);
-      }
+      clearInterval(typingIntervalRef.current);
     }
   }, [isTyping, escalationStatus]);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  // Initialize with welcome message when chat is opened and not collapsed
+  // Welcome message — only if history is empty
   useEffect(() => {
-    if (isOpen && !collapsed) {
-      // Only initialize welcome message if messages array is empty
-      if (messages.length === 0) {
-        const welcomeMessage = {
-          id: Date.now(),
-          type: 'ai',
-          content: "Hello! I'm your AI assistant for PCTE Help Desk. How can I help you today?",
-          timestamp: new Date(),
-          sentiment: { sentiment: 'neutral', score: 0 },
-          confidence: 0.95,
-        };
-        setMessages([welcomeMessage]);
-      }
+    if (isOpen && !collapsed && messages.length === 0) {
+      const welcome = {
+        id: Date.now(),
+        type: 'ai',
+        content: "Hello! I'm your AI assistant for PCTE Help Desk. How can I help you today?",
+        timestamp: new Date(),
+        sentiment: { sentiment: 'neutral', score: 0 },
+        confidence: 0.95,
+      };
+      setMessages([welcome]);
     }
   }, [isOpen, collapsed, messages.length]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  // ─── Send message ──────────────────────────────────────────────────────────
 
   const handleSendMessage = useCallback(async (userMessage) => {
-    // Add user message
     const userMsg = {
       id: Date.now(),
       type: 'user',
       content: userMessage,
       timestamp: new Date(),
     };
-    setMessages(prev => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
 
     const updatedHistory = [...messages, userMsg];
-    
-    // Check if we're waiting for ticket details
+
+    // Waiting for ticket details flow
     if (conversationContext.waitingForTicketDetails) {
-      // User provided ticket details - AI Agent creates ticket autonomously with cool animation
-      const ticketData = generateTicketData(updatedHistory, userMessage);
-      ticketData.description = userMessage; // Use detailed message
-      ticketData.subject = `Lab Crash - ${userMessage.substring(0, 50)}...`;
-      
       setIsTyping(true);
-      
-      // Show analyzing
-      const analyzingMsg = {
-        id: Date.now() + 0.1,
-        type: 'ai',
-        content: '🔍 Analyzing request...',
-        timestamp: new Date(),
-        isAnalyzing: true,
-      };
-      setMessages(prev => [...prev, analyzingMsg]);
-      
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setMessages(prev => prev.filter(msg => !msg.isAnalyzing));
-      
-      // Show AI Agent processing ticket creation with cool animation
+
+      const analyzingMsg = { id: Date.now() + 0.1, type: 'ai', content: '🔍 Analyzing request...', timestamp: new Date(), isAnalyzing: true };
+      setMessages((prev) => [...prev, analyzingMsg]);
+      await new Promise((r) => setTimeout(r, 800));
+      setMessages((prev) => prev.filter((m) => !m.isAnalyzing));
+
       const processingMsg = {
         id: Date.now() + 0.2,
         type: 'ai',
@@ -219,114 +232,57 @@ const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }
         timestamp: new Date(),
         isProcessing: true,
       };
-      setMessages(prev => [...prev, processingMsg]);
-      
-      // Show processing message for 3 seconds (user can see it)
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Keep processing message but mark it as done
-      setMessages(prev => prev.map(msg => 
-        msg.id === processingMsg.id ? { ...msg, isProcessing: false } : msg
-      ));
-      
-      // Show ticket created with typing effect
+      setMessages((prev) => [...prev, processingMsg]);
+      await new Promise((r) => setTimeout(r, 3000));
+      setMessages((prev) => prev.map((m) => m.id === processingMsg.id ? { ...m, isProcessing: false } : m));
+
+      const ticketId = `INC-${Date.now().toString().slice(-5)}`;
+      const ticketData = { id: ticketId, priority: 'Medium', status: 'Open', description: userMessage, subject: `Lab Crash - ${userMessage.substring(0, 50)}...` };
+
       const ticketMsg = {
         id: Date.now() + 1,
         type: 'ai',
-        content: `✅ **Support ticket ${ticketData.id} has been created successfully!**\n\n**Ticket Details:**\n- **ID:** ${ticketData.id}\n- **Priority:** ${ticketData.priority}\n- **Status:** ${ticketData.status}\n- **Description:** ${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}\n\n**View Ticket:** [Open Ticket ${ticketData.id}](#ticket-${ticketData.id})\n\nOur support team will review your ticket and get back to you within 2 hours.`,
+        content: `✅ **Support ticket ${ticketId} has been created successfully!**\n\n**Ticket Details:**\n- **ID:** ${ticketId}\n- **Priority:** ${ticketData.priority}\n- **Status:** ${ticketData.status}\n- **Description:** ${userMessage.substring(0, 100)}${userMessage.length > 100 ? '...' : ''}\n\nOur support team will review your ticket and get back to you within 2 hours.`,
         timestamp: new Date(),
         sentiment: { sentiment: 'neutral', score: 0 },
         confidence: 0.95,
-        ticketId: ticketData.id,
-        ticketData: ticketData,
+        ticketId,
         isTyping: true,
       };
-      
-      setMessages(prev => [...prev, ticketMsg]);
-      
-      // Trigger ticket creation callback
-      if (onTicketCreated) {
-        onTicketCreated(ticketData);
-      }
-      
-      // Simulate typing effect
-      await new Promise(resolve => setTimeout(resolve, Math.min(ticketMsg.content.length * 20, 2000)));
-      
-      setMessages(prev => prev.map(msg => 
-        msg.id === ticketMsg.id ? { ...msg, isTyping: false } : msg
-      ));
-      
+      setMessages((prev) => [...prev, ticketMsg]);
+      if (onTicketCreated) onTicketCreated(ticketData);
+
+      await new Promise((r) => setTimeout(r, Math.min(ticketMsg.content.length * 20, 2000)));
+      setMessages((prev) => prev.map((m) => m.id === ticketMsg.id ? { ...m, isTyping: false } : m));
       setIsTyping(false);
-      
-      // Update context - ticket created, ready for escalation
-      setConversationContext(prev => ({
-        ...prev,
-        waitingForTicketDetails: false,
-        ticketCreated: true,
-        lastTicketId: ticketData.id,
-      }));
-      
+
+      setConversationContext((prev) => ({ ...prev, waitingForTicketDetails: false, ticketCreated: true, lastTicketId: ticketId }));
       return;
     }
 
-    // Check for escalation after ticket creation (only if ticket was created)
+    // Escalation flow after ticket created
     if (conversationContext.ticketCreated) {
-      const lowerMessage = userMessage.toLowerCase();
-      const escalationKeywords = ['urgent', 'now', 'asap', 'immediately', 'need help now', 'emergency', 'i need help now! this is urgent!'];
-      const isEscalation = escalationKeywords.some(keyword => lowerMessage.includes(keyword.toLowerCase()));
-      
-      if (isEscalation) {
+      const lower = userMessage.toLowerCase();
+      const escalationKeywords = ['urgent', 'now', 'asap', 'immediately', 'need help now', 'emergency'];
+      if (escalationKeywords.some((k) => lower.includes(k))) {
         setIsTyping(true);
-        
-        // Show analyzing
-        const analyzingMsg = {
-          id: Date.now() + 0.1,
-          type: 'ai',
-          content: '🔍 Analyzing escalation request...',
-          timestamp: new Date(),
-          isAnalyzing: true,
-        };
-        setMessages(prev => [...prev, analyzingMsg]);
-        
-        await new Promise(resolve => setTimeout(resolve, 800));
-        setMessages(prev => prev.filter(msg => !msg.isAnalyzing));
-        
-        // Show AI message about connecting to human agent
-        const aiEscalationMsg = {
-          id: Date.now() + 0.2,
-          type: 'ai',
-          content: 'I understand this is urgent. Let me connect you with a live human agent immediately.',
-          timestamp: new Date(),
-          isTyping: true,
-        };
-        setMessages(prev => [...prev, aiEscalationMsg]);
-        
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setMessages(prev => prev.map(msg => 
-          msg.id === aiEscalationMsg.id ? { ...msg, isTyping: false } : msg
-        ));
-        
-        // Show finding agent animation
-        setEscalationStatus({
-          message: '🔍 Finding available agent...',
-          status: 'searching',
-        });
-        
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        setEscalationStatus({
-          message: '📞 Connecting to live agent...',
-          status: 'connecting',
-        });
-        
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        setEscalationStatus({
-          message: 'Agent will message you when online',
-          status: 'pending',
-        });
-        
-        // After 3 seconds, show Sarah (Tier 2) message
+
+        const analyzingMsg = { id: Date.now() + 0.1, type: 'ai', content: '🔍 Analyzing escalation request...', timestamp: new Date(), isAnalyzing: true };
+        setMessages((prev) => [...prev, analyzingMsg]);
+        await new Promise((r) => setTimeout(r, 800));
+        setMessages((prev) => prev.filter((m) => !m.isAnalyzing));
+
+        const aiEscMsg = { id: Date.now() + 0.2, type: 'ai', content: 'I understand this is urgent. Let me connect you with a live human agent immediately.', timestamp: new Date(), isTyping: true };
+        setMessages((prev) => [...prev, aiEscMsg]);
+        await new Promise((r) => setTimeout(r, 1000));
+        setMessages((prev) => prev.map((m) => m.id === aiEscMsg.id ? { ...m, isTyping: false } : m));
+
+        setEscalationStatus({ message: '🔍 Finding available agent...', status: 'searching' });
+        await new Promise((r) => setTimeout(r, 1500));
+        setEscalationStatus({ message: '📞 Connecting to live agent...', status: 'connecting' });
+        await new Promise((r) => setTimeout(r, 1500));
+        setEscalationStatus({ message: 'Agent will message you when online', status: 'pending' });
+
         setTimeout(() => {
           const agentMsg = {
             id: Date.now() + 2,
@@ -336,94 +292,78 @@ const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }
             agentName: 'Sarah',
             agentTier: 'Tier 2',
           };
-          
           setIsTyping(false);
-          setMessages(prev => [...prev, agentMsg]);
-          setEscalationStatus({
-            message: 'Live agent active - Sarah (Tier 2)',
-            status: 'active',
-          });
+          setMessages((prev) => [...prev, agentMsg]);
+          setEscalationStatus({ message: 'Live agent active - Sarah (Tier 2)', status: 'active' });
           setIsAgentActive(true);
         }, 3000);
-        
         return;
       }
     }
 
-    // Generate AI response
+    // Normal AI response
     setIsTyping(true);
-    
-    // Show analyzing message
-    const analyzingMsg = {
-      id: Date.now() + 0.1,
-      type: 'ai',
-      content: '🔍 Analyzing request...',
-      timestamp: new Date(),
-      isAnalyzing: true,
-    };
-    setMessages(prev => [...prev, analyzingMsg]);
-    
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    // Remove analyzing message
-    setMessages(prev => prev.filter(msg => !msg.isAnalyzing));
-    
-    await new Promise(resolve => setTimeout(resolve, simulateTypingDelay(userMessage.length)));
+    const analyzingMsg = { id: Date.now() + 0.1, type: 'ai', content: '🔍 Analyzing request...', timestamp: new Date(), isAnalyzing: true };
+    setMessages((prev) => [...prev, analyzingMsg]);
+    await new Promise((r) => setTimeout(r, 800));
+    setMessages((prev) => prev.filter((m) => !m.isAnalyzing));
 
-    const aiResponse = generateResponse(userMessage, conversationContext);
-    
-    // Handle escalation
+    let aiResponse;
+    try {
+      const backendResponse = await sendMessage(userMessage);
+      console.log('Backend Response:', backendResponse);
+      aiResponse = {
+        message: backendResponse.answer,
+        confidence: backendResponse.confidence ?? 0.95,
+        tier: backendResponse.tier,
+        severity: backendResponse.severity,
+        needEscalation: backendResponse.needEscalation,
+        ticketId: backendResponse.ticketId,
+        guardrail: backendResponse.guardrail ?? { blocked: false, reason: null },
+        sentiment: { sentiment: 'neutral', score: 0 },
+        options: null,
+        type: backendResponse.needEscalation ? 'escalation' : 'answer',
+        source: backendResponse.kb_references?.[0]?.title ?? null,
+      };
+    } catch (error) {
+      console.error('Chat API Error:', error);
+      aiResponse = {
+        message: "⚠️ I'm having trouble connecting right now. Please try again shortly.",
+        confidence: 0,
+        sentiment: { sentiment: 'negative', score: 0.5 },
+        type: 'error',
+        guardrail: { blocked: false },
+      };
+    }
+
+    // Escalation from backend
     if (aiResponse.type === 'escalation') {
-      setEscalationStatus({
-        message: 'Connecting to live agent...',
-        status: 'escalating',
-      });
-      
-      // Simulate escalation progression
+      setEscalationStatus({ message: 'Connecting to live agent...', status: 'escalating' });
       setTimeout(() => {
-        setEscalationStatus({
-          message: 'Agent connected: Sarah from Tier 1 Support',
-          status: 'connected',
-        });
-        
-        // Create escalation ticket automatically
-        const escalationTicket = generateTicketData([...messages, userMsg], userMessage);
-        escalationTicket.priority = 'High';
-        escalationTicket.escalated = true;
-        escalationTicket.escalationReason = 'High sentiment detected';
-        
+        setEscalationStatus({ message: 'Agent connected: Sarah from Tier 1 Support', status: 'connected' });
+        const escalationTicket = { id: `INC-${Date.now().toString().slice(-5)}`, priority: 'High', status: 'Open', escalated: true };
         setTimeout(() => {
-          if (onTicketCreated) {
-            onTicketCreated(escalationTicket);
-          }
-          
-          // Add agent message (Sarah - Tier 2)
+          if (onTicketCreated) onTicketCreated(escalationTicket);
           const agentMsg = {
             id: Date.now() + 2,
             type: 'agent',
-            content: `Hi! I'm Sarah from Tier 2 Support. I can see you're experiencing ${userMessage.toLowerCase().includes('urgent') ? 'an urgent issue' : 'some frustration'}. I've created ticket ${escalationTicket.id} and I'm here to help you right away. Can you tell me more about what's happening?`,
+            content: `Hi! I'm Sarah from Tier 2 Support. I've created ticket ${escalationTicket.id} and I'm here to help you right away. Can you tell me more about what's happening?`,
             timestamp: new Date(),
             agentName: 'Sarah',
             agentTier: 'Tier 2',
           };
-          
           setIsTyping(false);
-          setMessages(prev => [...prev, agentMsg]);
-          setEscalationStatus({
-            message: `Live agent active - Ticket ${escalationTicket.id} created`,
-            status: 'active',
-          });
+          setMessages((prev) => [...prev, agentMsg]);
+          setEscalationStatus({ message: `Live agent active - Ticket ${escalationTicket.id} created`, status: 'active' });
         }, 2000);
       }, 1500);
-      
-      // Don't add AI response for escalation, agent will respond
       setIsTyping(false);
       return;
     }
 
-    // Handle ticket details request
+    // Ticket details request from backend
     if (aiResponse.type === 'ticket_details_request') {
-      setConversationContext(prev => ({
+      setConversationContext((prev) => ({
         ...prev,
         waitingForTicketDetails: true,
         activeScriptId: aiResponse.context?.activeScriptId,
@@ -432,102 +372,69 @@ const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }
       }));
     }
 
-    // Update conversation context (script-based)
+    // Update context from backend
     if (aiResponse.context) {
-      setConversationContext(prev => {
-        return {
-          ...prev,
-          activeScriptId: aiResponse.context.activeScriptId !== undefined 
-            ? aiResponse.context.activeScriptId 
-            : prev.activeScriptId,
-          currentStepIndex: aiResponse.context.currentStepIndex !== undefined
-            ? aiResponse.context.currentStepIndex
-            : prev.currentStepIndex,
-          unresolvedAttempts: aiResponse.context.unresolvedAttempts !== undefined
-            ? aiResponse.context.unresolvedAttempts
-            : prev.unresolvedAttempts || 0,
-          lastTicketId: aiResponse.context.lastTicketId || prev.lastTicketId,
-        };
-      });
-    } else if (aiResponse.type === 'answer' && !aiResponse.options) {
-      // No context provided - clear script state if response type indicates end
-      setConversationContext(prev => ({
+      setConversationContext((prev) => ({
         ...prev,
-        activeScriptId: null,
-        currentStepIndex: null,
-        unresolvedAttempts: prev.unresolvedAttempts || 0,
+        activeScriptId: aiResponse.context.activeScriptId ?? prev.activeScriptId,
+        currentStepIndex: aiResponse.context.currentStepIndex ?? prev.currentStepIndex,
+        unresolvedAttempts: aiResponse.context.unresolvedAttempts ?? prev.unresolvedAttempts ?? 0,
+        lastTicketId: aiResponse.context.lastTicketId || prev.lastTicketId,
       }));
+    } else if (aiResponse.type === 'answer' && !aiResponse.options) {
+      setConversationContext((prev) => ({ ...prev, activeScriptId: null, currentStepIndex: null }));
     }
 
-    // Add AI message with typing effect
     const aiMsg = {
       id: Date.now() + 1,
       type: 'ai',
       content: aiResponse.message,
       timestamp: new Date(),
-      sentiment: aiResponse.sentiment,
       confidence: aiResponse.confidence,
-      source: aiResponse.source,
-      sourceName: aiResponse.sourceName,
-      messageType: aiResponse.type,
-      options: aiResponse.options,
+      tier: aiResponse.tier,
+      severity: aiResponse.severity,
       guardrail: aiResponse.guardrail,
+      ticketId: aiResponse.ticketId,
       isTyping: true,
     };
-
     setIsTyping(false);
-    setMessages(prev => [...prev, aiMsg]);
-    
-    // Simulate typing effect for AI response
-    await new Promise(resolve => setTimeout(resolve, Math.min(aiResponse.message.length * 20, 2000)));
-    
-    // Mark typing as complete
-    setMessages(prev => prev.map(msg => 
-      msg.id === aiMsg.id ? { ...msg, isTyping: false } : msg
-    ));
+    setMessages((prev) => [...prev, aiMsg]);
+    await new Promise((r) => setTimeout(r, Math.min(aiResponse.message.length * 20, 2000)));
+    setMessages((prev) => prev.map((m) => m.id === aiMsg.id ? { ...m, isTyping: false } : m));
   }, [messages, conversationContext, onTicketCreated]);
 
-  // Handle initial message and auto-expand when message is provided
+  // ─── Initial message handling ──────────────────────────────────────────────
+
   useEffect(() => {
     if (isOpen && initialMessage && initialMessage !== lastInitialMessageRef.current) {
-      // Reset the sent flag for new initial message
       initialMessageSentRef.current = false;
       lastInitialMessageRef.current = initialMessage;
-      
-      // If chat is collapsed, expand it first
-      if (collapsed) {
-        setCollapsed(false);
-      }
+      if (collapsed) setCollapsed(false);
     } else if (!initialMessage) {
-      // Clear refs when initial message is cleared
       initialMessageSentRef.current = false;
       lastInitialMessageRef.current = null;
     }
   }, [initialMessage, isOpen, collapsed]);
 
-  // Send initial message after chat is expanded and welcome message is shown
   useEffect(() => {
     if (isOpen && !collapsed && initialMessage && !initialMessageSentRef.current) {
-      // Wait for welcome message to be set if needed
-      if (messages.length === 0) {
-        // Welcome message will be set by the other useEffect, wait for it
-        return;
-      }
-      
-      // Welcome message exists, send the initial message
+      if (messages.length === 0) return;
       const timer = setTimeout(() => {
         if (!initialMessageSentRef.current) {
           initialMessageSentRef.current = true;
           handleSendMessage(initialMessage);
         }
       }, 800);
-      
       return () => clearTimeout(timer);
     }
   }, [isOpen, collapsed, initialMessage, messages.length, handleSendMessage]);
 
+  // ─── Handlers ─────────────────────────────────────────────────────────────
+
   const handleClose = () => {
-    // Reset chat state and collapse (but don't close completely)
+    // ✅ Clear persisted chat on explicit close (X button)
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(CONTEXT_KEY);
     setMessages([]);
     setConversationContext({});
     setEscalationStatus(null);
@@ -536,59 +443,30 @@ const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }
     setCollapsed(true);
     initialMessageSentRef.current = false;
     lastInitialMessageRef.current = null;
-    // Clear initial message in parent but keep chat open (so floating button shows)
-    if (onClose) {
-      // Only clear the initial message, don't close the chat
-      onClose();
-    }
+    if (onClose) onClose();
   };
 
   const handleToggleCollapse = () => {
-    const newCollapsedState = !collapsed;
-    
-    // Reset any stuck states when toggling
     setIsTyping(false);
-    if (newCollapsedState) {
-      // When collapsing, clear escalation status
-      setEscalationStatus(null);
-    }
-    
-    setCollapsed(newCollapsedState);
+    if (!collapsed) setEscalationStatus(null);
+    setCollapsed((prev) => !prev);
   };
 
-  const handleOptionClick = (option) => {
-    handleSendMessage(option);
-  };
+  const handleOptionClick = (option) => handleSendMessage(option);
 
   if (!isOpen) return null;
 
-  // When collapsed, show a floating button to reopen
+  // Collapsed state — floating button
   if (collapsed) {
     return (
-      <Box
-        sx={{
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-          zIndex: 1000,
-        }}
-      >
+      <Box sx={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1000 }}>
         <IconButton
           onClick={handleToggleCollapse}
           sx={{
-            width: 'auto',
-            height: 56,
-            minWidth: 180,
-            px: 2,
-            backgroundColor: '#D4AF37',
-            color: '#1a1a1a',
-            borderRadius: '8px',
+            width: 'auto', height: 56, minWidth: 180, px: 2,
+            backgroundColor: '#D4AF37', color: '#1a1a1a', borderRadius: '8px',
             boxShadow: '0 4px 12px rgba(212, 175, 55, 0.4)',
-            '&:hover': {
-              backgroundColor: '#E8C547',
-              boxShadow: '0 6px 16px rgba(212, 175, 55, 0.5)',
-              transform: 'scale(1.05)',
-            },
+            '&:hover': { backgroundColor: '#E8C547', boxShadow: '0 6px 16px rgba(212, 175, 55, 0.5)', transform: 'scale(1.05)' },
             transition: 'all 0.3s ease',
           }}
         >
@@ -601,23 +479,19 @@ const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }
     );
   }
 
+  // ─── Full panel ────────────────────────────────────────────────────────────
+
   return (
     <ChatPanel elevation={8}>
       <ChatHeader>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '12px',
-              background: `linear-gradient(135deg, ${alpha('#D4AF37', 0.3)} 0%, ${alpha('#0052CC', 0.2)} 100%)`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: `2px solid ${alpha('#D4AF37', 0.4)}`,
-              boxShadow: `0 4px 12px ${alpha('#D4AF37', 0.2)}`,
-            }}
-          >
+          <Box sx={{
+            width: 40, height: 40, borderRadius: '12px',
+            background: `linear-gradient(135deg, ${alpha('#D4AF37', 0.3)} 0%, ${alpha('#0052CC', 0.2)} 100%)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: `2px solid ${alpha('#D4AF37', 0.4)}`,
+            boxShadow: `0 4px 12px ${alpha('#D4AF37', 0.2)}`,
+          }}>
             <SmartToyIcon sx={{ color: '#D4AF37', fontSize: '24px' }} />
           </Box>
           <Box>
@@ -629,17 +503,7 @@ const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }
             </Typography>
           </Box>
         </Box>
-        <IconButton
-          onClick={handleClose}
-          sx={{
-            color: '#999999',
-            '&:hover': {
-              backgroundColor: alpha('#D4AF37', 0.1),
-              color: '#D4AF37',
-            },
-            transition: 'all 0.2s ease',
-          }}
-        >
+        <IconButton onClick={handleClose} sx={{ color: '#999999', '&:hover': { backgroundColor: alpha('#D4AF37', 0.1), color: '#D4AF37' }, transition: 'all 0.2s ease' }}>
           <CloseIcon />
         </IconButton>
       </ChatHeader>
@@ -647,9 +511,7 @@ const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }
       <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
         <MessagesContainer ref={messagesContainerRef}>
           {messages.map((msg) => {
-            // Skip analyzing messages (they're shown temporarily), but show processing messages
             if (msg.isAnalyzing) return null;
-            
             return (
               <ChatMessage
                 key={msg.id}
@@ -669,18 +531,12 @@ const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }
 
           {isTyping && !escalationStatus && (
             <TypingIndicator>
-              <Box
-                sx={{
-                  width: 24,
-                  height: 24,
-                  borderRadius: '50%',
-                  background: `linear-gradient(135deg, ${alpha('#D4AF37', 0.3)} 0%, ${alpha('#0052CC', 0.2)} 100%)`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: `1px solid ${alpha('#D4AF37', 0.4)}`,
-                }}
-              >
+              <Box sx={{
+                width: 24, height: 24, borderRadius: '50%',
+                background: `linear-gradient(135deg, ${alpha('#D4AF37', 0.3)} 0%, ${alpha('#0052CC', 0.2)} 100%)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: `1px solid ${alpha('#D4AF37', 0.4)}`,
+              }}>
                 <SmartToyIcon sx={{ fontSize: '14px', color: '#D4AF37' }} />
               </Box>
               <Typography variant="caption" sx={{ color: '#D4AF37', fontWeight: 'medium' }}>
@@ -691,65 +547,35 @@ const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }
 
           <Box ref={messagesEndRef} />
 
-          {/* Escalation Banner */}
           <Collapse in={escalationStatus !== null}>
-            <Alert
-              severity="warning"
-              sx={{
-                mt: 2,
-                backgroundColor: alpha('#FF9500', 0.2),
-                color: '#FF9500',
-                border: `1px solid ${alpha('#FF9500', 0.4)}`,
-                borderRadius: '12px',
-                '& .MuiAlert-icon': {
-                  color: '#FF9500',
-                },
-                boxShadow: `0 4px 12px ${alpha('#FF9500', 0.2)}`,
-              }}
-            >
+            <Alert severity="warning" sx={{
+              mt: 2, backgroundColor: alpha('#FF9500', 0.2), color: '#FF9500',
+              border: `1px solid ${alpha('#FF9500', 0.4)}`, borderRadius: '12px',
+              '& .MuiAlert-icon': { color: '#FF9500' },
+              boxShadow: `0 4px 12px ${alpha('#FF9500', 0.2)}`,
+            }}>
               {escalationStatus?.message || 'Connecting to live agent...'}
             </Alert>
           </Collapse>
         </MessagesContainer>
 
-        <Box
-          sx={{
-            borderTop: `2px solid ${alpha('#D4AF37', 0.2)}`,
-            padding: '16px 20px',
-            background: `linear-gradient(180deg, ${alpha('#121212', 1)} 0%, ${alpha('#1a1a1a', 1)} 100%)`,
-            position: 'relative',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: '2px',
-              background: `linear-gradient(90deg, transparent, ${alpha('#D4AF37', 0.6)}, transparent)`,
-            },
-          }}
-        >
-          <ChatInput
-            onSend={handleSendMessage}
-            disabled={isTyping || escalationStatus?.status === 'escalating'}
-          />
-          {/* Collapse Button */}
+        <Box sx={{
+          borderTop: `2px solid ${alpha('#D4AF37', 0.2)}`,
+          padding: '16px 20px',
+          background: `linear-gradient(180deg, ${alpha('#121212', 1)} 0%, ${alpha('#1a1a1a', 1)} 100%)`,
+          position: 'relative',
+          '&::before': {
+            content: '""', position: 'absolute', top: 0, left: 0, right: 0, height: '2px',
+            background: `linear-gradient(90deg, transparent, ${alpha('#D4AF37', 0.6)}, transparent)`,
+          },
+        }}>
+          <ChatInput onSend={handleSendMessage} disabled={isTyping || escalationStatus?.status === 'escalating'} />
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
-            <IconButton
-              onClick={handleToggleCollapse}
-              sx={{
-                color: '#D4AF37',
-                backgroundColor: alpha('#D4AF37', 0.1),
-                borderRadius: '8px',
-                width: '100%',
-                py: 0.5,
-                '&:hover': {
-                  backgroundColor: alpha('#D4AF37', 0.2),
-                  color: '#E8C547',
-                },
-                transition: 'all 0.2s ease',
-              }}
-            >
+            <IconButton onClick={handleToggleCollapse} sx={{
+              color: '#D4AF37', backgroundColor: alpha('#D4AF37', 0.1), borderRadius: '8px', width: '100%', py: 0.5,
+              '&:hover': { backgroundColor: alpha('#D4AF37', 0.2), color: '#E8C547' },
+              transition: 'all 0.2s ease',
+            }}>
               <ExpandMoreIcon sx={{ fontSize: '24px' }} />
             </IconButton>
           </Box>
@@ -760,4 +586,3 @@ const AIChatPanel = ({ isOpen, onClose, onTicketCreated, initialMessage = null }
 };
 
 export default AIChatPanel;
-
