@@ -29,48 +29,63 @@ const SignIn = () => {
     const [regPassword, setRegPassword] = useState("");
 
     const getDefaultRoute = (role) => {
-    switch (role) {
-        case "operator":
-            return "/operator";
-        case "instructor":
-            return "/manager";
-        case "support engineer":
-            return "/analyst";
-        case "admin":
-            return "/admin";
-        default:
-            return "/operator";
-    }
-};
+        switch (role) {
+            case "operator":
+                return "/operator";
+            case "instructor":
+                return "/manager";
+            case "support engineer":
+                return "/analyst";
+            case "admin":
+                return "/admin";
+            default:
+                return "/operator";
+        }
+    };
     const mapRoleToDisplay = (backendRole) => {
-    switch (backendRole) {
-        case "operator": return "Cyber Operator";
-        case "instructor": return "Training Manager";
-        case "support engineer": return "Help Desk Analyst";
-        case "admin": return "Administrator";
-        default: return backendRole;
-    }
-};
+        switch (backendRole) {
+            case "operator": return "Cyber Operator";
+            case "instructor": return "Training Manager";
+            case "support engineer": return "Help Desk Analyst";
+            case "admin": return "Administrator";
+            default: return backendRole;
+        }
+    };
+
+    const mapRoleToShortDisplay = (role) => {
+        switch (role) {
+            case "Cyber Operator":
+                return "Operator";
+            case "Training Manager":
+                return "Instructor";
+            case "Help Desk Analyst":
+                return "Support Engineer";
+            case "Administrator":
+                return "Admin";
+            default:
+                return role;
+        }
+    };
 
     const handleSubmit = async () => {
-    if (!selectedUser) {
-        navigate("/");
-        return;
-    }
+        if (!selectedUser) {
+            navigate("/");
+            return;
+        }
 
-    if (!username || !password) {
-        alert("Enter username & password");
-        return;
-    }
+        if (!username || !password) {
+            alert("Enter username & password");
+            return;
+        }
 
-    try {
-        const response = await apiClient.post("/api/auth/login", {
-            username,
-            password,
-        });
+        try {
+            const response = await apiClient.post("/api/auth/login", {
+                username,
+                password,
+            });
 
-        const data = response.data;
-        const returnedDisplayRole = mapRoleToDisplay(data.role);
+            const data = response.data;
+            const returnedDisplayRole = mapRoleToDisplay(data.role);
             if (returnedDisplayRole !== selectedUser.role) {
                 alert(
                     `Invalid credentials for ${selectedUser.role}. Please use correct username & password. or sign Up for a new account with the ${selectedUser.role} role.`
@@ -78,58 +93,58 @@ const SignIn = () => {
                 return;
             }
 
-        // ✅ Save backend auth data
-        login({
-            username,
-            role: mapRoleToDisplay(data.role),
-            access_token: data.access_token,
-            session_id: data.session_id,
-        });
+            // ✅ Save backend auth data
+            login({
+                username,
+                role: mapRoleToDisplay(data.role),
+                access_token: data.access_token,
+                session_id: data.session_id,
+            });
 
-        navigate(getDefaultRoute(data.role));
+            navigate(getDefaultRoute(data.role));
 
-    } catch (err) {
-        console.error(err);
-        alert(err.response?.data?.detail || "Login failed");
-    }
-};
+        } catch (err) {
+            console.error(err);
+            alert(err.response?.data?.detail || "Login failed");
+        }
+    };
 
-const mapRoleToBackend = (role) => {
-    switch (role) {
-        case "Cyber Operator":
-            return "operator";
-        case "Training Manager":
-            return "instructor";
-        case "Help Desk Analyst":
-            return "support engineer";
-        case "Administrator":
-            return "admin";
-        default:
-            return "operator";
-    }
-};
+    const mapRoleToBackend = (role) => {
+        switch (role) {
+            case "Cyber Operator":
+                return "operator";
+            case "Training Manager":
+                return "instructor";
+            case "Help Desk Analyst":
+                return "support engineer";
+            case "Administrator":
+                return "admin";
+            default:
+                return "operator";
+        }
+    };
 
     const handleRegister = async () => {
-    if (!regUsername || !regPassword) {
-        alert("Enter registration details");
-        return;
-    }
+        if (!regUsername || !regPassword) {
+            alert("Enter registration details");
+            return;
+        }
 
-    try {
-        await apiClient.post("/api/auth/register", {
-            username: regUsername,
-            password: regPassword,
-            role: mapRoleToBackend(selectedUser.role)
-        });
+        try {
+            await apiClient.post("/api/auth/register", {
+                username: regUsername,
+                password: regPassword,
+                role: mapRoleToBackend(selectedUser.role)
+            });
 
-        alert("✅ Registration successful!");
-        setOpenModal(false);
+            alert("✅ Registration successful!");
+            setOpenModal(false);
 
-    } catch (err) {
-        console.error(err);
-        alert(err.response?.data?.detail || "Registration failed");
-    }
-};
+        } catch (err) {
+            console.error(err);
+            alert(err.response?.data?.detail || "Registration failed");
+        }
+    };
 
     return (
         <>
@@ -171,7 +186,7 @@ const mapRoleToBackend = (role) => {
                                 align="center"
                                 sx={{ color: "#999999", mb: 3 }}
                             >
-                                Login as {selectedUser.role}
+                                Login as {mapRoleToShortDisplay(selectedUser?.role)}
                             </Typography>
                         )}
 

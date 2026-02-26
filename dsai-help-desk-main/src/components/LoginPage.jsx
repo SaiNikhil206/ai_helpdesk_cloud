@@ -9,62 +9,60 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 const LoginPage = () => {
   const navigate = useNavigate();
 
-  // const handleLogin = (user) => {
-  // onLogin(user);
-  // Navigate to role-specific dashboard
-  // navigate(`/${user.id}`);
-  // };
+  const handleLogin = (user) => {
+    const safeUser = {
+      id: user.id,
+      name: user.name,
+      username: user.username,
+      role: user.role,
+    };
 
-  // const handleLogin = (user) => {
-  //   onLogin(user);
-  //   navigate('/signin');
-  // };
-
-const handleLogin = (user) => {
-  const safeUser = {
-    id: user.id,
-    name: user.name,
-    username: user.username,
-    role: user.role,
+    navigate('/signin', { state: { user: safeUser } });
   };
-
-  navigate('/signin', { state: { user: safeUser } });
-};
 
   const handleTitleClick = () => {
     // Hidden easter egg: open demo script navigator in new tab
     window.open('/demo-script', '_blank');
   };
 
+
+  // Map actual role → button display name
+  const roleButtonMap = {
+    "Cyber Operator": "Operator",
+    "Training Manager": "Instructor",
+    "Help Desk Analyst": "Support Engineer",
+    "Administrator": "Admin",
+  };
+
   const users = [
     {
       id: 'operator',
-      name: 'Charlie Operator',
-      username: 'charlie.operator',
+      name: 'Sainik Operator',
+      username: 'sainik.operator',
       role: 'Cyber Operator',
       description: 'Cyber specialist maintaining and advancing operational readiness. Access self-service portal and AI chatbot to resolve issues, find guidance, and expand expertise through training.',
       icon: SecurityIcon,
     },
     {
       id: 'manager',
-      name: 'Morgan Manager',
-      username: 'morgan.manager',
+      name: 'Sai Instructor',
+      username: 'sai.instructor',
       role: 'Training Manager',
       description: 'Overseeing training exercises. Monitor training impact, view analytics, and understand escalation workflows.',
       icon: GroupsIcon,
     },
     {
       id: 'analyst',
-      name: 'Alex Analyst',
-      username: 'alex.analyst',
+      name: 'Nikhil Support Engineer',
+      username: 'nikhil.supportengineer',
       role: 'Help Desk Analyst',
       description: 'Support personnel managing Help Desk operations. Manage AI-enriched tickets, monitor integrations, and track model performance.',
       icon: SupportAgentIcon,
     },
     {
       id: 'admin',
-      name: 'Adam Admin',
-      username: 'adam.admin',
+      name: 'Sai Nikhil Admin',
+      username: 'sainikhil.admin',
       role: 'Administrator',
       description: 'Setting up training environments. Full system access: configuration, security, compliance, and model management.',
       icon: AdminPanelSettingsIcon,
@@ -126,13 +124,6 @@ const handleLogin = (user) => {
                   <Typography variant="body1" sx={{ mb: 3, color: '#E0E0E0', flex: 1 }}>
                     {user.description}
                   </Typography>
-                  {/* <Button
-                    variant="contained"
-                    fullWidth
-                    sx={{ mt: 'auto' }}
-                  >
-                    Login as {user.role}
-                  </Button> */}
                   <Button
                     variant="contained"
                     fullWidth
@@ -142,7 +133,8 @@ const handleLogin = (user) => {
                       handleLogin(user);
                     }}
                   >
-                    Login as {user.role}
+                    {/* Login as {user.role} */}
+                    Login as {roleButtonMap[user.role] || user.role}
                   </Button>
                 </CardContent>
               </Card>
