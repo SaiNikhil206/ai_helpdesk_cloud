@@ -7,12 +7,14 @@ from app.services.prompts import PROMPT_TEMPLATE, CLASSIFICATION_PROMPT_TEMPLATE
 from app.services.embeddings import vectorstore
 from app.models.schemas import ChatRequest, ChatResponse, GuardRail
 from sqlalchemy.orm import Session
+from app.services.tier_service import TierService
 from app.services.guardrails import evaluate_guardrails, validate_kb_grounding
 from app.services.memory import get_or_create_session, save_message, load_chat_history, save_guardrail_event, save_kb_references
 from app.services.role_policy import apply_role_constraints, adjust_answer_for_role, role_guardrail_message
 from dotenv import load_dotenv
 load_dotenv()
 
+tier_service = TierService()
 
 retriever = vectorstore.as_retriever(
     search_type="mmr",
@@ -213,13 +215,25 @@ def ask_question(request: ChatRequest, db: Session) -> ChatResponse:
     })
 
     # APPLY CLASSIFICATION
-    rag_response.tier = apply_role_constraints(
-        role=request.user_role,
-        tier=classification.tier,
+    kb_grounded = True 
+    repeated_failure_signal = classification.needEscalation
+
+    tier, severity, needs_escalation = tier_service.classify_tier_and_severity(
+        message=request.message,
+        user_role=request.user_role,
+        context=request.context,
+        kb_coverage=kb_grounded,
+        repeated_failure=repeated_failure_signal,
+        need_escalation=classification.needEscalation,
     )
 
-    rag_response.severity = classification.severity
-    rag_response.needEscalation = classification.needEscalation
+    rag_response.tier = apply_role_constraints(
+        role=request.user_role,
+        tier=tier.value,
+    )
+
+    rag_response.severity = severity.value
+    rag_response.needEscalation = needs_escalation
 
     rag_response.confidence = min(
         rag_response.confidence or 0.97,

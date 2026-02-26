@@ -2,21 +2,6 @@ from app.models.db import Ticket
 from sqlalchemy import and_
 import uuid
 
-def find_existing_ticket(db, session_id: int, message: str):
-
-    recent_tickets = (
-        db.query(Ticket)
-        .filter(
-            and_(
-                Ticket.session_id == session_id,
-                Ticket.status == "OPEN"
-            )
-        )
-        .all()
-    )
-
-    return recent_tickets[0] if recent_tickets else None
-
 CATEGORY_RULES = {
     "AUTH": ["login", "authentication", "mfa", "redirect"],
     "VM": ["vm", "kernel", "crash", "freeze"],
@@ -24,6 +9,7 @@ CATEGORY_RULES = {
     "CONTAINER": ["container", "startup.sh"],
     "SECURITY": ["disable logging", "bypass", "host access"],
 }
+
 
 def detect_category(message: str) -> str:
     msg = message.lower()
@@ -35,18 +21,39 @@ def detect_category(message: str) -> str:
     return "GENERAL"
 
 
+def find_existing_ticket(db,session_id: int,category: str,severity: str):
+    return (
+        db.query(Ticket)
+        .filter(
+            Ticket.session_id == session_id,
+            Ticket.status == "OPEN",
+            Ticket.severity == severity,
+            Ticket.ai_results["category"].astext == category 
+        )
+        .first()
+    )
+
+
 def create_ticket_if_needed(db, session, request, response):
 
     if not response.needEscalation:
         return None
 
-    # Deduplication check
-    existing = find_existing_ticket(db, session.id, request.message)
+    # Detect category first
+    category = detect_category(request.message)
+
+    # Check smarter deduplication
+    existing = find_existing_ticket(
+        db=db,
+        session_id=session.id,
+        category=category,
+        severity=response.severity
+    )
+
     if existing:
         return existing
 
-    category = detect_category(request.message)
-
+    # Create new ticket
     ticket = Ticket(
         id=str(uuid.uuid4()),
         session_id=session.id,
@@ -57,8 +64,13 @@ def create_ticket_if_needed(db, session, request, response):
         ai_results={
             "confidence": response.confidence,
             "category": category,
-            "kbReferences": response.kb_references
-,
+            "kbReferences": [
+                {
+                    "id": ref.get("id"),
+                    "title": ref.get("title")
+                }
+                for ref in (response.kb_references or [])
+            ]
         }
     )
 
@@ -66,7 +78,3 @@ def create_ticket_if_needed(db, session, request, response):
     db.flush()
 
     return ticket
-
-
-
-

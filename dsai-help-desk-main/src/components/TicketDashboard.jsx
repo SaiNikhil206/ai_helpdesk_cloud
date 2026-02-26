@@ -118,7 +118,7 @@ const TicketDashboard = () => {
 
   const mapTicket = (ticket) => ({
     id: ticket.id,
-    title: ticket.ai_results?.subject || ticket.ai_results?.title || 'Support Request',
+    title: ticket.ai_results?.subject || ticket.ai_results?.kbReferences?.[0]?.title || 'Support Request',
     status: normaliseStatus(ticket.status),
     rawStatus: ticket.status || 'OPEN',
     priority: normalisePriority(ticket.severity),
